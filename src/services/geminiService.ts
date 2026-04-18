@@ -56,16 +56,21 @@ function extractFinalAnswer(text: string): { reasoning: string; aiScore: number 
     return out.join('\n').trim()
   }
 
-  // Scan paragraphs from last to first; return first non-empty clean one
-  for (let i = paragraphs.length - 1; i >= 0; i--) {
-    const cleaned = cleanParagraph(paragraphs[i])
-    if (cleaned) return { reasoning: cleaned, aiScore }
+  // Clean all paragraphs and join non-empty ones
+  const cleanedParagraphs: string[] = []
+  for (const para of paragraphs) {
+    const cleaned = cleanParagraph(para)
+    if (cleaned) cleanedParagraphs.push(cleaned)
+  }
+
+  if (cleanedParagraphs.length > 0) {
+    return { reasoning: cleanedParagraphs.join('\n\n'), aiScore }
   }
 
   return { reasoning: cleanedRaw, aiScore }
 }
 
-function truncateReasoning(text: string, maxLen = 300): string {
+function truncateReasoning(text: string, maxLen = 600): string {
   if (text.length <= maxLen) return text
   const separators = ['\u3002', '\uff0c', '\u3001'] // 。，、
   for (const sep of separators) {
@@ -96,7 +101,7 @@ export async function analyzeStock({
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
     generationConfig: {
       temperature: 0.4,
-      maxOutputTokens: 512,
+      maxOutputTokens: 1024,
       topP: 0.9,
     },
   })
