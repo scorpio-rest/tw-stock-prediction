@@ -50,7 +50,7 @@ export function TradePanel({
 
   const handleTrade = () => {
     setErrorMsg(null)
-    const data = { stock_id: stockCode, shares, price: currentPrice }
+    const data = { stock_id: stockCode, stock_name: stockName, shares, price: currentPrice }
     const opts = {
       onSuccess: () => {
         onSuccess?.()
