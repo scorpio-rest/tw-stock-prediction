@@ -5,3 +5,15 @@
 [build.environment]
   NODE_VERSION = "20"
   # NEXT_PUBLIC_API_URL 需要在 Netlify 後台設定，指向你的 Render 後端
+
+# 根路徑導向 dashboard
+[[redirects]]
+  from = "/"
+  to = "/dashboard"
+  status = 302
+
+# SPA fallback：未預先產生的動態路由交由 dashboard 處理
+[[redirects]]
+  from = "/stock/*"
+  to = "/stock/2330.html"
+  status = 200

@@ -17,9 +17,10 @@ export function formatPrice(value: number): string {
   }).format(value)
 }
 
-export function formatPercent(value: number, decimals = 2): string {
-  const sign = value > 0 ? '+' : ''
-  return `${sign}${value.toFixed(decimals)}%`
+export function formatPercent(value: number | undefined | null, decimals = 2): string {
+  const v = value ?? 0
+  const sign = v > 0 ? '+' : ''
+  return `${sign}${v.toFixed(decimals)}%`
 }
 
 export function formatChange(value: number): string {

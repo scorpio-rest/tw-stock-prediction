@@ -40,10 +40,10 @@ export default function DashboardPage() {
   // Use blended score from AI when available
   const totalScore = aiResult?.available
     ? aiResult.blendedScore
-    : displayPrediction?.composite_score.total_score || 0
+    : displayPrediction?.composite_score?.total_score ?? 0
   const direction = aiResult?.available
     ? aiResult.blendedDirection
-    : displayPrediction?.composite_score.direction || '中性'
+    : displayPrediction?.composite_score?.direction || '中性'
 
   return (
     <div className="space-y-6">
@@ -75,14 +75,14 @@ export default function DashboardPage() {
           {/* Prediction Display */}
           <PredictionDisplay
             direction={parseDirection(direction)}
-            confidence={displayPrediction?.composite_score.confidence || 0}
+            confidence={displayPrediction?.composite_score?.confidence ?? 0}
             totalScore={totalScore}
             stockCode={quote?.stock_id || currentStock}
             stockName={quote?.stock_name || ''}
-            currentPrice={quote?.current_price || 0}
-            changePct={quote?.change_percent || 0}
+            currentPrice={quote?.current_price ?? 0}
+            changePct={quote?.change_percent ?? 0}
             isLoading={predictionLoading && quoteLoading}
-            lastUpdated={displayPrediction?.composite_score.calculated_at}
+            lastUpdated={displayPrediction?.composite_score?.calculated_at}
             horizonLabel={HORIZON_LABELS[horizon]}
             aiActive={aiResult?.available || displayPrediction?.ai_analysis?.available}
           />
@@ -107,11 +107,11 @@ export default function DashboardPage() {
                 </Card>
               )}
               <AIReasoningCard
-                reasoning={aiResult?.reasoning || displayPrediction?.ai_analysis.reasoning}
+                reasoning={aiResult?.reasoning || displayPrediction?.ai_analysis?.reasoning}
                 isLoading={predictionLoading || aiLoading}
-                timestamp={displayPrediction?.composite_score.calculated_at}
-                model={aiResult?.model || displayPrediction?.ai_analysis.model}
-                sources={aiResult?.sources || displayPrediction?.ai_analysis.sources}
+                timestamp={displayPrediction?.composite_score?.calculated_at}
+                model={aiResult?.model || displayPrediction?.ai_analysis?.model}
+                sources={aiResult?.sources || displayPrediction?.ai_analysis?.sources}
               />
             </div>
           </div>

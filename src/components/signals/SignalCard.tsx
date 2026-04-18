@@ -66,10 +66,10 @@ export function SignalCard({ signal }: SignalCardProps) {
               animate={{ opacity: 1 }}
               className={cn('text-2xl font-bold font-mono', colors.text)}
             >
-              {signal.score > 0 ? '+' : ''}{signal.score.toFixed(0)}
+              {(signal.score ?? 0) > 0 ? '+' : ''}{(signal.score ?? 0).toFixed(0)}
             </motion.span>
             <span className="text-xs text-muted-foreground">
-              權重 {(signal.weight * 100).toFixed(0)}%
+              權重 {((signal.weight ?? 0) * 100).toFixed(0)}%
             </span>
           </div>
 
