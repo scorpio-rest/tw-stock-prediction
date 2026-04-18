@@ -18,7 +18,7 @@ export const useSettingsStore = create<SettingsStore>()(
   persist(
     (set, get) => ({
       geminiApiKey: '',
-      geminiModel: 'gemini-2.5-flash',
+      geminiModel: 'gemma-4-31b-it',
       aiEnabled: true,
       setGeminiApiKey: (key) => set({ geminiApiKey: key }),
       setGeminiModel: (model) => set({ geminiModel: model }),
