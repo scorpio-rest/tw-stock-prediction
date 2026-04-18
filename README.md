@@ -2,6 +2,8 @@
 
 台股即時分析與模擬交易平台 — 結合 15 大訊號加權評分系統與 AI 智慧分析，提供多時間維度的走勢預測及全功能模擬交易環境。
 
+**線上 Demo**：[https://scorpioliu0953.github.io/tw-stock-prediction/](https://scorpioliu0953.github.io/tw-stock-prediction/)
+
 ## 功能特色
 
 - **15 大訊號分析**：涵蓋技術面（RSI、MACD、KD 等 9 項）、籌碼面、量價結構、大盤連動、均線系統、波動率、時間因子
