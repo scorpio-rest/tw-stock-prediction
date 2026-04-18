@@ -50,23 +50,23 @@ export function FundamentalsCard({ data }: FundamentalsCardProps) {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-0.5">
-        {data.pe > 0 && <Row label="本益比 PE" value={data.pe.toFixed(2)} />}
-        {data.forward_pe > 0 && <Row label="預估 PE" value={data.forward_pe.toFixed(2)} />}
-        {data.pb > 0 && <Row label="股價淨值比 PB" value={data.pb.toFixed(2)} />}
-        {data.eps !== 0 && <Row label="EPS(TTM)" value={data.eps.toFixed(2)} />}
-        {data.dividend_yield > 0 && (
-          <Row label="殖利率" value={`${data.dividend_yield.toFixed(2)}%`} />
+        {(data.pe ?? 0) > 0 && <Row label="本益比 PE" value={data.pe!.toFixed(2)} />}
+        {(data.forward_pe ?? 0) > 0 && <Row label="預估 PE" value={data.forward_pe!.toFixed(2)} />}
+        {(data.pb ?? 0) > 0 && <Row label="股價淨值比 PB" value={data.pb!.toFixed(2)} />}
+        {data.eps != null && data.eps !== 0 && <Row label="EPS(TTM)" value={data.eps.toFixed(2)} />}
+        {(data.dividend_yield ?? 0) > 0 && (
+          <Row label="殖利率" value={`${data.dividend_yield!.toFixed(2)}%`} />
         )}
-        {data.market_cap > 0 && (
-          <Row label="市值" value={formatMarketCap(data.market_cap)} />
+        {(data.market_cap ?? 0) > 0 && (
+          <Row label="市值" value={formatMarketCap(data.market_cap!)} />
         )}
-        {data.week_52_high > 0 && data.week_52_low > 0 && (
+        {(data.week_52_high ?? 0) > 0 && (data.week_52_low ?? 0) > 0 && (
           <Row
             label="52 週區間"
             value={`${data.week_52_low} ~ ${data.week_52_high}`}
           />
         )}
-        {data.beta > 0 && <Row label="Beta" value={data.beta.toFixed(2)} />}
+        {(data.beta ?? 0) > 0 && <Row label="Beta" value={data.beta!.toFixed(2)} />}
         {data.sector && (
           <Row
             label="產業"
