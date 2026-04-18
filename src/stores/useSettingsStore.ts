@@ -14,11 +14,13 @@ interface SettingsStore {
   hasApiKey: () => boolean
 }
 
+const DEFAULT_MODEL = 'gemma-4-31b-it'
+
 export const useSettingsStore = create<SettingsStore>()(
   persist(
     (set, get) => ({
       geminiApiKey: '',
-      geminiModel: 'gemma-4-31b-it',
+      geminiModel: DEFAULT_MODEL,
       aiEnabled: true,
       setGeminiApiKey: (key) => set({ geminiApiKey: key }),
       setGeminiModel: (model) => set({ geminiModel: model }),
@@ -26,6 +28,18 @@ export const useSettingsStore = create<SettingsStore>()(
       toggleAi: () => set((state) => ({ aiEnabled: !state.aiEnabled })),
       hasApiKey: () => get().geminiApiKey.trim().length > 0,
     }),
-    { name: 'tw-stock-settings' }
+    {
+      name: 'tw-stock-settings',
+      version: 1,
+      migrate: (persisted: any, version: number) => {
+        if (version === 0) {
+          // v0 → v1: 預設模型從 gemini-2.5-flash 改為 gemma-4-31b-it
+          if (persisted.geminiModel === 'gemini-2.5-flash') {
+            persisted.geminiModel = DEFAULT_MODEL
+          }
+        }
+        return persisted
+      },
+    }
   )
 )
