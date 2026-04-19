@@ -492,60 +492,70 @@ class QuoteService:
         """
         Get basic fundamentals via yfinance.Ticker.info.
         Cached in stock_info_cache for 24 hours.
+        Retries up to 2 times with delay on rate-limit errors.
         """
         cache_key = f"fundamentals:{stock_id}"
         if cache_key in stock_info_cache:
             return stock_info_cache[cache_key]
 
-        try:
-            ticker_sym = _get_ticker_symbol(stock_id)
-            t = yf.Ticker(ticker_sym)
-            raw = t.info or {}
+        max_retries = 2
+        for attempt in range(max_retries + 1):
+            try:
+                ticker_sym = _get_ticker_symbol(stock_id)
+                t = yf.Ticker(ticker_sym)
+                raw = t.info or {}
 
-            # Fallback to other market if primary returned nothing useful
-            if not raw.get("trailingPE") and not raw.get("marketCap"):
-                alt = f"{stock_id}.TWO" if ticker_sym.endswith(".TW") else f"{stock_id}.TW"
-                try:
-                    raw = yf.Ticker(alt).info or raw
-                except Exception:
-                    pass
+                # Fallback to other market if primary returned nothing useful
+                if not raw.get("trailingPE") and not raw.get("marketCap"):
+                    alt = f"{stock_id}.TWO" if ticker_sym.endswith(".TW") else f"{stock_id}.TW"
+                    try:
+                        raw = yf.Ticker(alt).info or raw
+                    except Exception:
+                        pass
 
-            def _safe(key: str, default: float = 0.0) -> float:
-                val = raw.get(key)
-                if val is None:
-                    return default
-                try:
-                    return round(float(val), 2)
-                except (TypeError, ValueError):
-                    return default
+                def _safe(key: str, default: float = 0.0) -> float:
+                    val = raw.get(key)
+                    if val is None:
+                        return default
+                    try:
+                        return round(float(val), 2)
+                    except (TypeError, ValueError):
+                        return default
 
-            # yfinance 1.2+ returns dividendYield as already-percentage (e.g. 1.23)
-            # older versions returned fraction (0.0123). Detect by magnitude.
-            raw_yield = raw.get("dividendYield") or 0
-            if raw_yield and raw_yield < 1:
-                div_yield = round(raw_yield * 100, 2)
-            else:
-                div_yield = round(raw_yield, 2)
+                # yfinance 1.2+ returns dividendYield as already-percentage (e.g. 1.23)
+                # older versions returned fraction (0.0123). Detect by magnitude.
+                raw_yield = raw.get("dividendYield") or 0
+                if raw_yield and raw_yield < 1:
+                    div_yield = round(raw_yield * 100, 2)
+                else:
+                    div_yield = round(raw_yield, 2)
 
-            fundamentals = {
-                "pe": _safe("trailingPE"),
-                "forward_pe": _safe("forwardPE"),
-                "pb": _safe("priceToBook"),
-                "eps": _safe("trailingEps"),
-                "dividend_yield": div_yield,
-                "market_cap": int(raw.get("marketCap") or 0),
-                "week_52_high": _safe("fiftyTwoWeekHigh"),
-                "week_52_low": _safe("fiftyTwoWeekLow"),
-                "beta": _safe("beta"),
-                "sector": raw.get("sector", "") or "",
-                "industry": raw.get("industry", "") or "",
-            }
-            stock_info_cache[cache_key] = fundamentals
-            return fundamentals
+                fundamentals = {
+                    "pe": _safe("trailingPE"),
+                    "forward_pe": _safe("forwardPE"),
+                    "pb": _safe("priceToBook"),
+                    "eps": _safe("trailingEps"),
+                    "dividend_yield": div_yield,
+                    "market_cap": int(raw.get("marketCap") or 0),
+                    "week_52_high": _safe("fiftyTwoWeekHigh"),
+                    "week_52_low": _safe("fiftyTwoWeekLow"),
+                    "beta": _safe("beta"),
+                    "sector": raw.get("sector", "") or "",
+                    "industry": raw.get("industry", "") or "",
+                }
+                stock_info_cache[cache_key] = fundamentals
+                return fundamentals
 
-        except Exception as e:
-            logger.warning(f"Failed to get fundamentals for {stock_id}: {e}")
-            return {}
+            except Exception as e:
+                err_msg = str(e)
+                if "rate" in err_msg.lower() or "too many" in err_msg.lower():
+                    if attempt < max_retries:
+                        wait = (attempt + 1) * 3
+                        logger.info(f"Rate limited on fundamentals for {stock_id}, retry in {wait}s (attempt {attempt+1})")
+                        await asyncio.sleep(wait)
+                        continue
+                logger.warning(f"Failed to get fundamentals for {stock_id}: {e}")
+                return {}
 
     async def get_history(self, stock_id: str, period: str = "3mo") -> list[dict]:
         """Fetch historical OHLCV data via yfinance (cached)."""

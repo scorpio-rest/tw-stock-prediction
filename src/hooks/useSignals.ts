@@ -8,7 +8,7 @@ export function useSignals(code: string | null) {
     queryKey: ['signals', code],
     queryFn: () => predictionService.getSignals(code!),
     enabled: !!code,
-    staleTime: 5000,
-    refetchInterval: 10000,
+    staleTime: 30000,
+    refetchInterval: 60000,
   })
 }
