@@ -1,7 +1,6 @@
 """Fetch Taiwan stock-specific news via Yahoo Finance."""
 
 import asyncio
-import re
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -16,18 +15,51 @@ news_cache: TTLCache = TTLCache(maxsize=500, ttl=900)
 
 def _get_ticker_symbol(stock_id: str) -> str:
     """Convert stock ID to yfinance ticker symbol."""
-    if stock_id.startswith("0") and len(stock_id) == 4:
-        return f"{stock_id}.TW"  # ETFs
     return f"{stock_id}.TW"
 
 
-def _format_timestamp(ts: int) -> str:
-    """Format Unix timestamp to short date string."""
+def _format_pub_date(date_str: str) -> str:
+    """Format ISO date string (e.g. '2026-04-19T12:30:15Z') to short form."""
+    if not date_str:
+        return ""
     try:
-        dt = datetime.fromtimestamp(ts, tz=timezone.utc)
+        dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
         return dt.strftime("%m/%d %H:%M")
     except Exception:
-        return ""
+        return date_str[:16]
+
+
+def _extract_news_item(entry: dict) -> Optional[dict]:
+    """Extract news fields from yfinance news entry (new format with nested content)."""
+    content = entry.get("content") or entry
+
+    title = content.get("title", "")
+    if not title:
+        return None
+
+    # Provider / publisher
+    provider = content.get("provider", {})
+    source = provider.get("displayName", "") if isinstance(provider, dict) else ""
+
+    # Published date
+    pub_date = content.get("pubDate", "") or content.get("displayTime", "")
+    published = _format_pub_date(pub_date)
+
+    # Link
+    click_url = content.get("clickThroughUrl", {})
+    canonical_url = content.get("canonicalUrl", {})
+    link = ""
+    if isinstance(click_url, dict):
+        link = click_url.get("url", "")
+    if not link and isinstance(canonical_url, dict):
+        link = canonical_url.get("url", "")
+
+    return {
+        "title": title,
+        "source": source,
+        "published": published,
+        "link": link,
+    }
 
 
 class NewsService:
@@ -61,8 +93,8 @@ class NewsService:
             raw_news = await loop.run_in_executor(None, _fetch)
 
             if not raw_news:
-                # Try alternate market suffix
-                alt_sym = f"{stock_id}.TWO" if ticker_sym.endswith(".TW") else f"{stock_id}.TW"
+                # Try alternate market suffix (OTC stocks)
+                alt_sym = f"{stock_id}.TWO"
 
                 def _fetch_alt():
                     t = yf.Ticker(alt_sym)
@@ -76,21 +108,12 @@ class NewsService:
                 return []
 
             items = []
-            for entry in raw_news[:limit]:
-                title = entry.get("title", "")
-                if not title:
-                    continue
-
-                published = ""
-                if entry.get("providerPublishTime"):
-                    published = _format_timestamp(entry["providerPublishTime"])
-
-                items.append({
-                    "title": title,
-                    "source": entry.get("publisher", ""),
-                    "published": published,
-                    "link": entry.get("link", ""),
-                })
+            for entry in raw_news:
+                if len(items) >= limit:
+                    break
+                item = _extract_news_item(entry)
+                if item:
+                    items.append(item)
 
             news_cache[cache_key] = items
             return items
