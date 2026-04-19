@@ -32,7 +32,7 @@ export function NewsCard({ items }: NewsCardProps) {
           <Newspaper className="h-5 w-5 text-amber-500" />
           相關新聞
           <span className="ml-1 rounded bg-muted px-1.5 py-0.5 text-[10px] font-normal text-muted-foreground">
-            Google News · 15 分鐘快取
+            Yahoo Finance · 15 分鐘快取
           </span>
         </CardTitle>
       </CardHeader>

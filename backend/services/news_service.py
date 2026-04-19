@@ -1,13 +1,11 @@
-"""Fetch Taiwan stock-specific news via Google News RSS."""
+"""Fetch Taiwan stock-specific news via Yahoo Finance."""
 
 import asyncio
 import re
-from urllib.parse import quote
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
-import httpx
-import feedparser
+import yfinance as yf
 from loguru import logger
 from cachetools import TTLCache
 
@@ -15,51 +13,25 @@ from cachetools import TTLCache
 # 15-minute cache per stock
 news_cache: TTLCache = TTLCache(maxsize=500, ttl=900)
 
-# Full browser-like headers to avoid Google 503 blocks on datacenter IPs
-_HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/125.0.0.0 Safari/537.36"
-    ),
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-    "Accept-Language": "zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7",
-    "Accept-Encoding": "gzip, deflate",
-    "Connection": "keep-alive",
-    "DNT": "1",
-}
+
+def _get_ticker_symbol(stock_id: str) -> str:
+    """Convert stock ID to yfinance ticker symbol."""
+    if stock_id.startswith("0") and len(stock_id) == 4:
+        return f"{stock_id}.TW"  # ETFs
+    return f"{stock_id}.TW"
 
 
-def _clean_title(title: str) -> str:
-    """Remove source suffix Google News adds (e.g. ' - 經濟日報')."""
-    title = re.sub(r"\s*-\s*[^-]+$", "", title).strip()
-    return title
-
-
-def _extract_source(entry) -> str:
-    """Extract source name from a feedparser entry."""
-    if hasattr(entry, "source") and hasattr(entry.source, "title"):
-        return entry.source.title
-    title = entry.get("title", "")
-    m = re.search(r"\s*-\s*([^-]+)$", title)
-    if m:
-        return m.group(1).strip()
-    return ""
-
-
-def _format_published(published_str: str) -> str:
-    """Format published date to short Chinese form."""
-    if not published_str:
-        return ""
+def _format_timestamp(ts: int) -> str:
+    """Format Unix timestamp to short date string."""
     try:
-        dt = datetime.strptime(published_str, "%a, %d %b %Y %H:%M:%S %Z")
+        dt = datetime.fromtimestamp(ts, tz=timezone.utc)
         return dt.strftime("%m/%d %H:%M")
     except Exception:
-        return published_str[:16]
+        return ""
 
 
 class NewsService:
-    """Fetches stock-specific news from Google News RSS."""
+    """Fetches stock-specific news from Yahoo Finance."""
 
     async def get_stock_news(
         self,
@@ -68,11 +40,9 @@ class NewsService:
         limit: int = 5,
     ) -> list[dict]:
         """
-        Get the latest news for a specific stock.
+        Get the latest news for a specific stock via yfinance.
 
-        Query pattern: "{stock_id} {stock_name}" (e.g. "2330 台積電")
-        - Uses Google News RSS (no API key required)
-        - httpx async client with browser-like headers
+        - Uses Yahoo Finance news (no API key required)
         - 15-minute cache per stock
         - Returns up to `limit` items
         """
@@ -80,40 +50,45 @@ class NewsService:
         if cache_key in news_cache:
             return news_cache[cache_key]
 
-        query_parts = [stock_id]
-        if stock_name and stock_name != stock_id:
-            query_parts.append(stock_name)
-        query = " ".join(query_parts)
-
-        url = (
-            f"https://news.google.com/rss/search?"
-            f"q={quote(query)}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant"
-        )
-
         try:
-            async with httpx.AsyncClient(
-                headers=_HEADERS,
-                follow_redirects=True,
-                timeout=15.0,
-            ) as client:
-                resp = await client.get(url)
-                resp.raise_for_status()
-                feed = feedparser.parse(resp.text)
+            ticker_sym = _get_ticker_symbol(stock_id)
 
-            if not feed.entries:
+            def _fetch():
+                t = yf.Ticker(ticker_sym)
+                return t.news or []
+
+            loop = asyncio.get_event_loop()
+            raw_news = await loop.run_in_executor(None, _fetch)
+
+            if not raw_news:
+                # Try alternate market suffix
+                alt_sym = f"{stock_id}.TWO" if ticker_sym.endswith(".TW") else f"{stock_id}.TW"
+
+                def _fetch_alt():
+                    t = yf.Ticker(alt_sym)
+                    return t.news or []
+
+                raw_news = await loop.run_in_executor(None, _fetch_alt)
+
+            if not raw_news:
                 logger.debug(f"No news found for {stock_id} ({stock_name})")
                 news_cache[cache_key] = []
                 return []
 
             items = []
-            for entry in feed.entries[:limit]:
-                title = _clean_title(entry.get("title", ""))
+            for entry in raw_news[:limit]:
+                title = entry.get("title", "")
                 if not title:
                     continue
+
+                published = ""
+                if entry.get("providerPublishTime"):
+                    published = _format_timestamp(entry["providerPublishTime"])
+
                 items.append({
                     "title": title,
-                    "source": _extract_source(entry),
-                    "published": _format_published(entry.get("published", "")),
+                    "source": entry.get("publisher", ""),
+                    "published": published,
                     "link": entry.get("link", ""),
                 })
 
