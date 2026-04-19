@@ -1,10 +1,9 @@
-"""Fetch Taiwan stock-specific news via Yahoo Finance."""
+"""Fetch Taiwan stock-specific news via CNYES (鉅亨網) API."""
 
-import asyncio
+import re
 from datetime import datetime, timezone
-from typing import Optional
 
-import yfinance as yf
+import httpx
 from loguru import logger
 from cachetools import TTLCache
 
@@ -12,58 +11,34 @@ from cachetools import TTLCache
 # 15-minute cache per stock
 news_cache: TTLCache = TTLCache(maxsize=500, ttl=900)
 
+_CNYES_SEARCH_URL = "https://api.cnyes.com/media/api/v1/search"
 
-def _get_ticker_symbol(stock_id: str) -> str:
-    """Convert stock ID to yfinance ticker symbol."""
-    return f"{stock_id}.TW"
+_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/125.0.0.0 Safari/537.36"
+    ),
+    "Accept": "application/json",
+}
 
 
-def _format_pub_date(date_str: str) -> str:
-    """Format ISO date string (e.g. '2026-04-19T12:30:15Z') to short form."""
-    if not date_str:
-        return ""
+def _format_timestamp(ts: int) -> str:
+    """Format Unix timestamp to short date string."""
     try:
-        dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+        dt = datetime.fromtimestamp(ts, tz=timezone.utc)
         return dt.strftime("%m/%d %H:%M")
     except Exception:
-        return date_str[:16]
+        return ""
 
 
-def _extract_news_item(entry: dict) -> Optional[dict]:
-    """Extract news fields from yfinance news entry (new format with nested content)."""
-    content = entry.get("content") or entry
-
-    title = content.get("title", "")
-    if not title:
-        return None
-
-    # Provider / publisher
-    provider = content.get("provider", {})
-    source = provider.get("displayName", "") if isinstance(provider, dict) else ""
-
-    # Published date
-    pub_date = content.get("pubDate", "") or content.get("displayTime", "")
-    published = _format_pub_date(pub_date)
-
-    # Link
-    click_url = content.get("clickThroughUrl", {})
-    canonical_url = content.get("canonicalUrl", {})
-    link = ""
-    if isinstance(click_url, dict):
-        link = click_url.get("url", "")
-    if not link and isinstance(canonical_url, dict):
-        link = canonical_url.get("url", "")
-
-    return {
-        "title": title,
-        "source": source,
-        "published": published,
-        "link": link,
-    }
+def _strip_html(text: str) -> str:
+    """Remove HTML tags like <mark> from text."""
+    return re.sub(r"<[^>]+>", "", text)
 
 
 class NewsService:
-    """Fetches stock-specific news from Yahoo Finance."""
+    """Fetches stock-specific news from CNYES (鉅亨網)."""
 
     async def get_stock_news(
         self,
@@ -72,9 +47,9 @@ class NewsService:
         limit: int = 5,
     ) -> list[dict]:
         """
-        Get the latest news for a specific stock via yfinance.
+        Get the latest news for a specific stock via CNYES search API.
 
-        - Uses Yahoo Finance news (no API key required)
+        - Search by stock code (e.g. "2330")
         - 15-minute cache per stock
         - Returns up to `limit` items
         """
@@ -83,37 +58,43 @@ class NewsService:
             return news_cache[cache_key]
 
         try:
-            ticker_sym = _get_ticker_symbol(stock_id)
+            async with httpx.AsyncClient(
+                headers=_HEADERS,
+                timeout=10.0,
+            ) as client:
+                resp = await client.get(
+                    _CNYES_SEARCH_URL,
+                    params={"q": stock_id, "limit": limit},
+                )
+                resp.raise_for_status()
+                data = resp.json()
 
-            def _fetch():
-                t = yf.Ticker(ticker_sym)
-                return t.news or []
+            raw_items = data.get("items", {}).get("data", [])
 
-            loop = asyncio.get_event_loop()
-            raw_news = await loop.run_in_executor(None, _fetch)
-
-            if not raw_news:
-                # Try alternate market suffix (OTC stocks)
-                alt_sym = f"{stock_id}.TWO"
-
-                def _fetch_alt():
-                    t = yf.Ticker(alt_sym)
-                    return t.news or []
-
-                raw_news = await loop.run_in_executor(None, _fetch_alt)
-
-            if not raw_news:
+            if not raw_items:
                 logger.debug(f"No news found for {stock_id} ({stock_name})")
                 news_cache[cache_key] = []
                 return []
 
             items = []
-            for entry in raw_news:
-                if len(items) >= limit:
-                    break
-                item = _extract_news_item(entry)
-                if item:
-                    items.append(item)
+            for entry in raw_items[:limit]:
+                title = _strip_html(entry.get("title", ""))
+                if not title:
+                    continue
+
+                published = ""
+                if entry.get("publishAt"):
+                    published = _format_timestamp(entry["publishAt"])
+
+                news_id = entry.get("newsId", "")
+                link = f"https://news.cnyes.com/news/id/{news_id}" if news_id else ""
+
+                items.append({
+                    "title": title,
+                    "source": entry.get("categoryName", "鉅亨網"),
+                    "published": published,
+                    "link": link,
+                })
 
             news_cache[cache_key] = items
             return items

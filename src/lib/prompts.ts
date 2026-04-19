@@ -174,7 +174,7 @@ export function formatNews(news?: NewsItem[] | null): string {
     })
     .join('\n')
 
-  return `${lines}\n（注意：以上新聞可能為英文來源，請用繁體中文摘要分析其影響）`
+  return lines
 }
 
 function formatTimestamp(): string {
