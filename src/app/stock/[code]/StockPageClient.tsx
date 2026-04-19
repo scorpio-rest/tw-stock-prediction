@@ -69,12 +69,24 @@ export default function StockPageClient() {
   const currentPosition = positions?.find((p) => p.stock_id === code)
 
   // Use blended score from AI when available
-  const totalScore = aiResult?.available
+  const hasAiScore = aiResult?.available && aiResult?.aiScore != null
+  const totalScore = hasAiScore
     ? aiResult.blendedScore
     : displayPrediction?.composite_score?.total_score ?? 0
-  const direction = aiResult?.available
+  const direction = hasAiScore
     ? aiResult.blendedDirection
     : displayPrediction?.composite_score?.direction || '中性'
+  const baseConfidence = displayPrediction?.composite_score?.confidence ?? 0
+  // When AI agrees with signals direction, boost confidence; when disagrees, lower it
+  const confidence = hasAiScore
+    ? (() => {
+        const signalDir = displayPrediction?.composite_score?.direction || '中性'
+        const aiDir = aiResult.blendedDirection
+        if (signalDir === aiDir) return Math.min(100, baseConfidence + 10)
+        if (signalDir !== '中性' && aiDir !== '中性' && signalDir !== aiDir) return Math.max(10, baseConfidence - 15)
+        return baseConfidence
+      })()
+    : baseConfidence
 
   return (
     <div className="space-y-6">
@@ -132,7 +144,7 @@ export default function StockPageClient() {
         <div className="lg:col-span-2">
           <PredictionDisplay
             direction={parseDirection(direction)}
-            confidence={displayPrediction?.composite_score?.confidence ?? 0}
+            confidence={confidence}
             totalScore={totalScore}
             stockCode={code}
             stockName={quote?.stock_name || ''}
@@ -142,6 +154,9 @@ export default function StockPageClient() {
             lastUpdated={displayPrediction?.composite_score?.calculated_at}
             horizonLabel={HORIZON_LABELS[horizon]}
             aiActive={aiResult?.available || displayPrediction?.ai_analysis?.available}
+            aiScore={aiResult?.aiScore}
+            signalScore={displayPrediction?.composite_score?.total_score}
+            aiWeight={aiResult?.aiWeight}
             onPredict={handlePredict}
             isPredicting={triggerPrediction.isPending}
             predictSuccess={triggerPrediction.isSuccess}

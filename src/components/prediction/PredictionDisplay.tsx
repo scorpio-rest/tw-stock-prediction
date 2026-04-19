@@ -1,7 +1,7 @@
 'use client'
 
 import { motion, AnimatePresence } from 'framer-motion'
-import { TrendingUp, TrendingDown, Info, Target, Loader2, CheckCircle2 } from 'lucide-react'
+import { TrendingUp, TrendingDown, Info, Target, Loader2, CheckCircle2, Brain, BarChart3 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { ConfidenceRing } from './ConfidenceRing'
@@ -23,6 +23,9 @@ interface PredictionDisplayProps {
   lastUpdated?: string
   horizonLabel?: string
   aiActive?: boolean
+  aiScore?: number | null
+  signalScore?: number
+  aiWeight?: number
   onPredict?: () => void
   isPredicting?: boolean
   predictSuccess?: boolean
@@ -41,6 +44,9 @@ export function PredictionDisplay({
   lastUpdated,
   horizonLabel,
   aiActive,
+  aiScore,
+  signalScore,
+  aiWeight,
   onPredict,
   isPredicting,
   predictSuccess,
@@ -151,6 +157,24 @@ export function PredictionDisplay({
               <Info className="h-3 w-3" />
               僅依據 15 大訊號加權計算，AI 未參與評分
             </span>
+          )}
+          {aiActive && aiScore != null && aiWeight != null && (
+            <div className="mt-2 flex items-center gap-3 rounded-lg bg-muted/60 px-3 py-2 text-xs">
+              <div className="flex items-center gap-1">
+                <BarChart3 className="h-3.5 w-3.5 text-blue-500" />
+                <span className="text-muted-foreground">訊號</span>
+                <span className="font-mono font-semibold">{signalScore ?? 0}</span>
+              </div>
+              <span className="text-muted-foreground">+</span>
+              <div className="flex items-center gap-1">
+                <Brain className="h-3.5 w-3.5 text-purple-500" />
+                <span className="text-muted-foreground">AI</span>
+                <span className="font-mono font-semibold">{aiScore}</span>
+                <span className="text-muted-foreground">({Math.round(aiWeight * 100)}%)</span>
+              </div>
+              <span className="text-muted-foreground">=</span>
+              <span className="font-mono font-bold">{totalScore}</span>
+            </div>
           )}
         </div>
 
