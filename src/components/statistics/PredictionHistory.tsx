@@ -39,6 +39,7 @@ export function PredictionHistory({ records, isLoading }: PredictionHistoryProps
           <TableHead>日期</TableHead>
           <TableHead>股票</TableHead>
           <TableHead>預測</TableHead>
+          <TableHead>區間</TableHead>
           <TableHead className="text-right">信心值</TableHead>
           <TableHead className="text-right">預測價</TableHead>
           <TableHead className="text-right">實際漲跌</TableHead>
@@ -57,6 +58,9 @@ export function PredictionHistory({ records, isLoading }: PredictionHistoryProps
             </TableCell>
             <TableCell>
               <PredictionBadge direction={r.predictedDirection} />
+            </TableCell>
+            <TableCell className="text-xs text-muted-foreground">
+              {r.horizonLabel || r.horizon || '-'}
             </TableCell>
             <TableCell className="text-right font-mono text-sm">
               {r.confidence}%

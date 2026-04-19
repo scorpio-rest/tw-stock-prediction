@@ -22,17 +22,22 @@ AsyncSessionLocal = async_sessionmaker(
 async def init_database():
     """Create all tables and enable WAL mode for SQLite."""
     from models.database_models import Base
+    import sqlalchemy as sa
 
     async with engine.begin() as conn:
         # Enable WAL mode for SQLite
         if "sqlite" in settings.DATABASE_URL:
-            await conn.execute(
-                __import__("sqlalchemy").text("PRAGMA journal_mode=WAL")
-            )
-            await conn.execute(
-                __import__("sqlalchemy").text("PRAGMA foreign_keys=ON")
-            )
+            await conn.execute(sa.text("PRAGMA journal_mode=WAL"))
+            await conn.execute(sa.text("PRAGMA foreign_keys=ON"))
         await conn.run_sync(Base.metadata.create_all)
+
+        # Migrate: add new columns to prediction_records if missing
+        if "sqlite" in settings.DATABASE_URL:
+            columns = [row[1] for row in (await conn.execute(sa.text("PRAGMA table_info(prediction_records)"))).fetchall()]
+            if "horizon" not in columns:
+                await conn.execute(sa.text("ALTER TABLE prediction_records ADD COLUMN horizon TEXT DEFAULT '1w'"))
+            if "verify_after" not in columns:
+                await conn.execute(sa.text("ALTER TABLE prediction_records ADD COLUMN verify_after DATETIME"))
 
 
 async def close_database():

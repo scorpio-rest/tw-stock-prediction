@@ -28,6 +28,9 @@ export interface PredictionRecord {
   actualChange?: number
   isCorrect?: boolean
   status: 'pending' | 'verified' | 'expired'
+  horizon?: string
+  horizonLabel?: string
+  verifyAfter?: string
 }
 
 export interface VerificationResult {

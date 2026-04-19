@@ -1,4 +1,4 @@
-"""Prediction creation and 62-second verification service."""
+"""Prediction creation and horizon-based verification service."""
 
 import math
 from datetime import datetime, timedelta
@@ -12,8 +12,35 @@ from models.database_models import PredictionRecord
 from core.ws_manager import ws_manager
 
 
+# Horizon → calendar days for verification timing
+HORIZON_DURATIONS = {
+    "1d": timedelta(days=1),
+    "3d": timedelta(days=3),
+    "1w": timedelta(weeks=1),
+    "2w": timedelta(weeks=2),
+    "1mo": timedelta(days=30),
+}
+
+# Horizon → flat threshold (%) — price change within this range counts as "flat"
+HORIZON_FLAT_THRESHOLD = {
+    "1d": 0.3,
+    "3d": 0.5,
+    "1w": 1.0,
+    "2w": 1.5,
+    "1mo": 2.0,
+}
+
+HORIZON_LABELS = {
+    "1d": "1日",
+    "3d": "3日",
+    "1w": "1週",
+    "2w": "2週",
+    "1mo": "1個月",
+}
+
+
 class PredictionService:
-    """Creates predictions and verifies them after 62 seconds."""
+    """Creates predictions and verifies them after the selected horizon elapses."""
 
     def __init__(self, quote_service):
         self.quote_service = quote_service
@@ -28,8 +55,9 @@ class PredictionService:
         price: float,
         signal_score: float,
         ai_involved: bool = False,
+        horizon: str = "1w",
     ) -> dict:
-        """Create a new prediction record."""
+        """Create a new prediction record with horizon-based verification."""
         # Map direction string to DB enum
         if signal_score >= 5:
             pred_dir = "up"
@@ -38,15 +66,21 @@ class PredictionService:
         else:
             pred_dir = "flat"
 
+        now = datetime.now()
+        duration = HORIZON_DURATIONS.get(horizon, timedelta(weeks=1))
+        verify_after = now + duration
+
         record = PredictionRecord(
             stock_id=stock_id,
             stock_name=stock_name,
-            predicted_at=datetime.now(),
+            predicted_at=now,
             predicted_direction=pred_dir,
             predicted_confidence=confidence,
             price_at_prediction=price,
             signal_score=signal_score,
             ai_involved=ai_involved,
+            horizon=horizon,
+            verify_after=verify_after,
             status="pending",
         )
         db.add(record)
@@ -64,21 +98,26 @@ class PredictionService:
         return result
 
     async def verify_pending(self, db: AsyncSession):
-        """Verify all predictions that are past their 62-second window."""
-        cutoff = datetime.now() - timedelta(seconds=62)
+        """Verify all predictions whose horizon has elapsed."""
+        now = datetime.now()
         result = await db.execute(
             select(PredictionRecord).where(
                 PredictionRecord.status == "pending",
-                PredictionRecord.predicted_at <= cutoff,
+                PredictionRecord.verify_after <= now,
             )
         )
         pending = result.scalars().all()
 
+        verified_count = 0
         for record in pending:
             await self._verify_single(db, record)
+            verified_count += 1
 
         if pending:
             await db.commit()
+
+        if verified_count > 0:
+            logger.info(f"Verified {verified_count} predictions")
 
     async def _verify_single(self, db: AsyncSession, record: PredictionRecord):
         """Verify a single prediction against current price."""
@@ -94,34 +133,37 @@ class PredictionService:
             if record.price_at_prediction else 0
         )
 
+        # Use horizon-specific flat threshold
+        flat_threshold = HORIZON_FLAT_THRESHOLD.get(record.horizon, 1.0)
+
         # Determine actual direction
-        if price_change_pct > 0.02:
+        if price_change_pct > flat_threshold:
             actual = "up"
-        elif price_change_pct < -0.02:
+        elif price_change_pct < -flat_threshold:
             actual = "down"
         else:
             actual = "flat"
 
-        # Determine correctness per PRD Section 6.1
+        # Determine correctness
         predicted = record.predicted_direction
         is_correct = None
 
         if predicted == "up":
-            if price_change_pct > 0.02:
+            if price_change_pct > flat_threshold:
                 is_correct = True
-            elif price_change_pct < -0.02:
+            elif price_change_pct < -flat_threshold:
                 is_correct = False
             else:
                 is_correct = None  # flat -> not counted
         elif predicted == "down":
-            if price_change_pct < -0.02:
+            if price_change_pct < -flat_threshold:
                 is_correct = True
-            elif price_change_pct > 0.02:
+            elif price_change_pct > flat_threshold:
                 is_correct = False
             else:
                 is_correct = None  # flat -> not counted
         elif predicted == "flat":
-            if abs(price_change_pct) <= 0.05:
+            if abs(price_change_pct) <= flat_threshold * 1.5:
                 is_correct = True
             else:
                 is_correct = False
@@ -132,6 +174,12 @@ class PredictionService:
         record.price_change_pct = round(price_change_pct, 4)
         record.is_correct = is_correct
         record.status = "verified"
+
+        horizon_label = HORIZON_LABELS.get(record.horizon, record.horizon)
+        logger.info(
+            f"Prediction #{record.id} ({record.stock_id}, {horizon_label}): "
+            f"predicted={predicted}, actual={actual}, change={price_change_pct:.2f}%, correct={is_correct}"
+        )
 
         # Broadcast verification result
         await ws_manager.broadcast_to_stock(record.stock_id, {
@@ -168,11 +216,8 @@ class PredictionService:
             eff = s + f
             return {"total": len(subset), "success": s, "fail": f, "rate": round(s/eff*100, 1) if eff else 0}
 
-        def _period_stats(start_h: int, start_m: int, end_h: int, end_m: int):
-            from datetime import time
-            start_t = time(start_h, start_m)
-            end_t = time(end_h, end_m)
-            subset = [r for r in records if r.predicted_at and start_t <= r.predicted_at.time() <= end_t]
+        def _horizon_stats(hz: str):
+            subset = [r for r in records if getattr(r, 'horizon', '1w') == hz]
             s = sum(1 for r in subset if r.is_correct is True)
             f = sum(1 for r in subset if r.is_correct is False)
             eff = s + f
@@ -202,10 +247,9 @@ class PredictionService:
                 "medium": _conf_stats(40, 70),
                 "low": _conf_stats(0, 40),
             },
-            "by_period": {
-                "opening": _period_stats(9, 0, 9, 30),
-                "midday": _period_stats(9, 30, 12, 0),
-                "closing": _period_stats(12, 0, 13, 30),
+            "by_horizon": {
+                hz: _horizon_stats(hz)
+                for hz in HORIZON_LABELS
             },
             "rolling_20": _rolling(20),
             "rolling_50": _rolling(50),
@@ -249,6 +293,7 @@ class PredictionService:
 
     @staticmethod
     def _to_dict(r: PredictionRecord) -> dict:
+        horizon_label = HORIZON_LABELS.get(r.horizon, r.horizon) if r.horizon else "1週"
         return {
             "id": r.id,
             "stock_id": r.stock_id,
@@ -259,6 +304,9 @@ class PredictionService:
             "price_at_prediction": r.price_at_prediction,
             "signal_score": r.signal_score,
             "ai_involved": r.ai_involved,
+            "horizon": r.horizon or "1w",
+            "horizon_label": horizon_label,
+            "verify_after": r.verify_after.isoformat() if r.verify_after else None,
             "verify_at": r.verify_at.isoformat() if r.verify_at else None,
             "price_at_verify": r.price_at_verify,
             "actual_direction": r.actual_direction,

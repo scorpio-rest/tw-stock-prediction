@@ -93,6 +93,8 @@ class PredictionRecord(Base):
     price_at_prediction = Column(Float, nullable=False)
     signal_score = Column(Float, nullable=True)
     ai_involved = Column(Boolean, nullable=False, default=False)
+    horizon = Column(String, nullable=False, default="1w")  # '1d' | '3d' | '1w' | '2w' | '1mo'
+    verify_after = Column(DateTime, nullable=True)  # When to verify (predicted_at + horizon duration)
     verify_at = Column(DateTime, nullable=True)
     price_at_verify = Column(Float, nullable=True)
     actual_direction = Column(String, nullable=True)

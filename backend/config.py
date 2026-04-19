@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     AI_MODEL: str = "gemma-4-31b-it"
 
     # Scheduler
-    PREDICTION_INTERVAL: int = 62
+    PREDICTION_INTERVAL: int = 1800  # Check for matured predictions every 30 minutes
     QUOTE_INTERVAL: int = 5
 
     # Portfolio

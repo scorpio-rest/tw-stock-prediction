@@ -12,7 +12,7 @@ import { PortfolioSummary } from '@/components/portfolio/PortfolioSummary'
 import { AccuracyChart } from '@/components/statistics/AccuracyChart'
 import { useStockStore } from '@/stores/useStockStore'
 import { useStockQuote, useStockKlines } from '@/hooks/useStockData'
-import { usePrediction, useAIAnalysis, usePredictionStats } from '@/hooks/usePrediction'
+import { usePrediction, useAIAnalysis, usePredictionStats, useTriggerPrediction } from '@/hooks/usePrediction'
 import { useSignals } from '@/hooks/useSignals'
 import { useAccount } from '@/hooks/usePortfolio'
 import { useStockWebSocket } from '@/hooks/useStockWebSocket'
@@ -34,6 +34,12 @@ export default function DashboardPage() {
 
   // Frontend AI analysis
   const { data: aiResult, isLoading: aiLoading } = useAIAnalysis(composite)
+
+  // Predict mutation
+  const triggerPrediction = useTriggerPrediction(currentStock || '', horizon)
+  const handlePredict = () => {
+    if (currentStock) triggerPrediction.mutate()
+  }
 
   const displayPrediction = prediction || composite
 
@@ -85,6 +91,10 @@ export default function DashboardPage() {
             lastUpdated={displayPrediction?.composite_score?.calculated_at}
             horizonLabel={HORIZON_LABELS[horizon]}
             aiActive={aiResult?.available || displayPrediction?.ai_analysis?.available}
+            onPredict={handlePredict}
+            isPredicting={triggerPrediction.isPending}
+            predictSuccess={triggerPrediction.isSuccess}
+            predictHorizonLabel={HORIZON_LABELS[horizon]}
           />
 
           {/* Signals + AI */}

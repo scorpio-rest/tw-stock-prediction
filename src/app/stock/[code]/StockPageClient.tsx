@@ -18,7 +18,7 @@ import { TradePanel } from '@/components/portfolio/TradePanel'
 import { useStockStore } from '@/stores/useStockStore'
 import { useUIStore } from '@/stores/useUIStore'
 import { useStockQuote, useStockKlines } from '@/hooks/useStockData'
-import { usePrediction, useAIAnalysis } from '@/hooks/usePrediction'
+import { usePrediction, useAIAnalysis, useTriggerPrediction } from '@/hooks/usePrediction'
 import { useSignals } from '@/hooks/useSignals'
 import { useAccount, usePositions } from '@/hooks/usePortfolio'
 import { useStockWebSocket } from '@/hooks/useStockWebSocket'
@@ -45,6 +45,10 @@ export default function StockPageClient() {
 
   // Frontend AI analysis
   const { data: aiResult, isLoading: aiLoading } = useAIAnalysis(composite)
+
+  // Predict mutation
+  const triggerPrediction = useTriggerPrediction(code, horizon)
+  const handlePredict = () => triggerPrediction.mutate()
 
   useEffect(() => {
     setCurrentStock(code)
@@ -128,6 +132,10 @@ export default function StockPageClient() {
             lastUpdated={displayPrediction?.composite_score?.calculated_at}
             horizonLabel={HORIZON_LABELS[horizon]}
             aiActive={aiResult?.available || displayPrediction?.ai_analysis?.available}
+            onPredict={handlePredict}
+            isPredicting={triggerPrediction.isPending}
+            predictSuccess={triggerPrediction.isSuccess}
+            predictHorizonLabel={HORIZON_LABELS[horizon]}
           />
         </div>
         <AIReasoningCard

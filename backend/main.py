@@ -41,7 +41,7 @@ portfolio_service = PortfolioService(quote_service)
 
 
 async def verify_predictions_job():
-    """Scheduled job: verify pending predictions every 62 seconds."""
+    """Scheduled job: verify predictions whose horizon has elapsed."""
     async with AsyncSessionLocal() as db:
         try:
             await prediction_service.verify_pending(db)

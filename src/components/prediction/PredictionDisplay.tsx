@@ -1,8 +1,9 @@
 'use client'
 
 import { motion, AnimatePresence } from 'framer-motion'
-import { TrendingUp, TrendingDown, Info } from 'lucide-react'
+import { TrendingUp, TrendingDown, Info, Target, Loader2, CheckCircle2 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import { ConfidenceRing } from './ConfidenceRing'
 import { Skeleton } from '@/components/ui/skeleton'
 import { DIRECTION_COLORS } from '@/lib/constants'
@@ -22,6 +23,10 @@ interface PredictionDisplayProps {
   lastUpdated?: string
   horizonLabel?: string
   aiActive?: boolean
+  onPredict?: () => void
+  isPredicting?: boolean
+  predictSuccess?: boolean
+  predictHorizonLabel?: string
 }
 
 export function PredictionDisplay({
@@ -36,6 +41,10 @@ export function PredictionDisplay({
   lastUpdated,
   horizonLabel,
   aiActive,
+  onPredict,
+  isPredicting,
+  predictSuccess,
+  predictHorizonLabel,
 }: PredictionDisplayProps) {
   if (isLoading) {
     return (
@@ -144,6 +153,38 @@ export function PredictionDisplay({
             </span>
           )}
         </div>
+
+        {/* Predict button */}
+        {onPredict && (
+          <Button
+            onClick={onPredict}
+            disabled={isPredicting || predictSuccess}
+            className={cn(
+              'mt-2 gap-2',
+              predictSuccess
+                ? 'bg-green-600 hover:bg-green-600 text-white'
+                : ''
+            )}
+            size="lg"
+          >
+            {isPredicting ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                建立預測中...
+              </>
+            ) : predictSuccess ? (
+              <>
+                <CheckCircle2 className="h-4 w-4" />
+                預測已建立 — {predictHorizonLabel || '1週'}後驗證
+              </>
+            ) : (
+              <>
+                <Target className="h-4 w-4" />
+                建立預測紀錄
+              </>
+            )}
+          </Button>
+        )}
       </CardContent>
     </Card>
   )

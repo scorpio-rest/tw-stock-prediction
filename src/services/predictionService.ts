@@ -13,8 +13,8 @@ export const predictionService = {
   getAIStatus: () =>
     api.get<{ enabled: boolean; reason: string; consecutive_failures: number; model: string; provider: string }>('/analysis/ai/status'),
 
-  predict: (code: string) =>
-    api.post<PredictionResult>(`/analysis/${code}/predict`),
+  predict: (code: string, horizon: string = '1w') =>
+    api.post<PredictionResult>(`/analysis/${code}/predict?horizon=${horizon}`),
 
   toggleAI: (enabled: boolean) =>
     api.post<{ enabled: boolean }>('/analysis/ai/toggle', { enabled }),

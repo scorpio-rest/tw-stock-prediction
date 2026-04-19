@@ -250,8 +250,12 @@ async def get_composite(
 
 
 @router.post("/{stock_id}/predict")
-async def create_prediction(stock_id: str, db: AsyncSession = Depends(get_db)):
-    """Create a new price prediction and start 62-second verification timer."""
+async def create_prediction(
+    stock_id: str,
+    horizon: str = Query("1w", pattern="^(1d|3d|1w|2w|1mo)$"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Create a new price prediction with horizon-based verification."""
     market_data = await quote_service.get_market_data(stock_id)
     composite = await signal_engine.evaluate(market_data)
 
@@ -264,6 +268,7 @@ async def create_prediction(stock_id: str, db: AsyncSession = Depends(get_db)):
         price=market_data.current_price,
         signal_score=composite.total_score,
         ai_involved=False,
+        horizon=horizon,
     )
 
     return APIResponse(data=prediction)

@@ -98,12 +98,15 @@ export function useAIAnalysis(composite: CompositeScore | undefined | null) {
   })
 }
 
-export function useTriggerPrediction(code: string) {
+export function useTriggerPrediction(code: string, horizon: string = '1w') {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: () => predictionService.predict(code),
+    mutationFn: () => predictionService.predict(code, horizon),
     onSuccess: (data) => {
       queryClient.setQueryData(['prediction', code], data)
+      // Invalidate stats and history so they refresh on next visit
+      queryClient.invalidateQueries({ queryKey: ['predictionStats'] })
+      queryClient.invalidateQueries({ queryKey: ['predictionHistory'] })
     },
   })
 }
