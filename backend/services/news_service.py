@@ -3,6 +3,7 @@
 import asyncio
 import re
 from urllib.parse import quote
+from urllib.request import Request, urlopen
 from datetime import datetime
 from typing import Optional
 
@@ -13,6 +14,13 @@ from cachetools import TTLCache
 
 # 15-minute cache per stock
 news_cache: TTLCache = TTLCache(maxsize=500, ttl=900)
+
+# Google blocks requests from datacenter IPs without a browser User-Agent
+_USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/125.0.0.0 Safari/537.36"
+)
 
 
 def _clean_title(title: str) -> str:
@@ -79,9 +87,16 @@ class NewsService:
         )
 
         try:
-            # feedparser is sync — run in executor to avoid blocking
+            # feedparser is sync — run in executor to avoid blocking.
+            # We fetch via urllib with a browser User-Agent first,
+            # because Google blocks default feedparser requests from datacenter IPs.
+            def _fetch_and_parse():
+                req = Request(url, headers={"User-Agent": _USER_AGENT})
+                with urlopen(req, timeout=10) as resp:
+                    return feedparser.parse(resp.read())
+
             loop = asyncio.get_event_loop()
-            feed = await loop.run_in_executor(None, feedparser.parse, url)
+            feed = await loop.run_in_executor(None, _fetch_and_parse)
 
             if not feed.entries:
                 logger.debug(f"No news found for {stock_id} ({stock_name})")
