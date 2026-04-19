@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react'
 import ReactECharts from 'echarts-for-react'
+import { cssVar } from '@/lib/chartColors'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 interface DataPoint {
@@ -30,19 +31,19 @@ export function TrendLineChart({ data, title, color = '#3b82f6' }: TrendLineChar
         type: 'category',
         data: data.map((d) => d.date),
         axisLabel: {
-          color: 'hsl(var(--muted-foreground))',
+          color: cssVar('muted-foreground'),
           fontSize: 10,
         },
-        axisLine: { lineStyle: { color: 'hsl(var(--border))' } },
+        axisLine: { lineStyle: { color: cssVar('border') } },
       },
       yAxis: {
         type: 'value',
         axisLabel: {
           formatter: '{value}%',
-          color: 'hsl(var(--muted-foreground))',
+          color: cssVar('muted-foreground'),
           fontSize: 10,
         },
-        splitLine: { lineStyle: { color: 'hsl(var(--border) / 0.3)' } },
+        splitLine: { lineStyle: { color: cssVar('border', 0.3) } },
       },
       series: [
         {

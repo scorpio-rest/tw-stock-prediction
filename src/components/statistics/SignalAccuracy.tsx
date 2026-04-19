@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react'
 import ReactECharts from 'echarts-for-react'
+import { cssVar } from '@/lib/chartColors'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { SIGNAL_NAMES } from '@/lib/constants'
 import type { SignalAccuracyData } from '@/types/signal'
@@ -30,17 +31,17 @@ export function SignalAccuracy({ data, isLoading }: SignalAccuracyProps) {
         max: 100,
         axisLabel: {
           formatter: '{value}%',
-          color: 'hsl(var(--muted-foreground))',
+          color: cssVar('muted-foreground'),
         },
         splitLine: {
-          lineStyle: { color: 'hsl(var(--border) / 0.3)' },
+          lineStyle: { color: cssVar('border', 0.3) },
         },
       },
       yAxis: {
         type: 'category',
         data: sorted.map((d) => SIGNAL_NAMES[d.signalName] || d.signalName),
         axisLabel: {
-          color: 'hsl(var(--foreground))',
+          color: cssVar('foreground'),
           fontSize: 12,
         },
         axisTick: { show: false },
@@ -61,7 +62,7 @@ export function SignalAccuracy({ data, isLoading }: SignalAccuracyProps) {
             show: true,
             position: 'right',
             formatter: '{c}%',
-            color: 'hsl(var(--muted-foreground))',
+            color: cssVar('muted-foreground'),
             fontSize: 11,
           },
         },

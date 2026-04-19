@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react'
 import ReactECharts from 'echarts-for-react'
+import { cssVar } from '@/lib/chartColors'
 import type { Holding } from '@/types/portfolio'
 
 interface AssetPieChartProps {
@@ -28,7 +29,7 @@ export function AssetPieChart({ holdings, cash }: AssetPieChartProps) {
         orient: 'vertical',
         left: 'left',
         textStyle: {
-          color: 'hsl(var(--foreground))',
+          color: cssVar('foreground'),
           fontSize: 12,
         },
       },
@@ -39,7 +40,7 @@ export function AssetPieChart({ holdings, cash }: AssetPieChartProps) {
           avoidLabelOverlap: false,
           itemStyle: {
             borderRadius: 6,
-            borderColor: 'hsl(var(--background))',
+            borderColor: cssVar('background'),
             borderWidth: 2,
           },
           label: {

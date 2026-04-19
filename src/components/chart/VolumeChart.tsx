@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react'
 import ReactECharts from 'echarts-for-react'
+import { cssVar } from '@/lib/chartColors'
 import type { Kline } from '@/types/stock'
 
 interface VolumeChartProps {
@@ -16,14 +17,14 @@ export function VolumeChart({ data }: VolumeChartProps) {
     xAxis: {
       type: 'category',
       data: data.map((k) => k.time),
-      axisLine: { lineStyle: { color: 'hsl(var(--border))' } },
-      axisLabel: { color: 'hsl(var(--muted-foreground))', fontSize: 10 },
+      axisLine: { lineStyle: { color: cssVar('border') } },
+      axisLabel: { color: cssVar('muted-foreground'), fontSize: 10 },
     },
     yAxis: {
       type: 'value',
-      axisLine: { lineStyle: { color: 'hsl(var(--border))' } },
-      axisLabel: { color: 'hsl(var(--muted-foreground))', fontSize: 10 },
-      splitLine: { lineStyle: { color: 'hsl(var(--border) / 0.3)' } },
+      axisLine: { lineStyle: { color: cssVar('border') } },
+      axisLabel: { color: cssVar('muted-foreground'), fontSize: 10 },
+      splitLine: { lineStyle: { color: cssVar('border', 0.3) } },
     },
     series: [
       {

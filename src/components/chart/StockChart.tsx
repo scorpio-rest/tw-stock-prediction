@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react'
 import { createChart, ColorType, CrosshairMode, type IChartApi, type ISeriesApi } from 'lightweight-charts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { cssVar } from '@/lib/chartColors'
 import type { Kline } from '@/types/stock'
 
 interface StockChartProps {
@@ -24,11 +25,11 @@ export function StockChart({ data, isLoading, stockName }: StockChartProps) {
     const chart = createChart(chartContainerRef.current, {
       layout: {
         background: { type: ColorType.Solid, color: 'transparent' },
-        textColor: 'hsl(var(--foreground))',
+        textColor: cssVar('foreground'),
       },
       grid: {
-        vertLines: { color: 'hsl(var(--border) / 0.5)' },
-        horzLines: { color: 'hsl(var(--border) / 0.5)' },
+        vertLines: { color: cssVar('border', 0.5) },
+        horzLines: { color: cssVar('border', 0.5) },
       },
       crosshair: {
         mode: CrosshairMode.Normal,
@@ -36,10 +37,10 @@ export function StockChart({ data, isLoading, stockName }: StockChartProps) {
       timeScale: {
         timeVisible: true,
         secondsVisible: false,
-        borderColor: 'hsl(var(--border))',
+        borderColor: cssVar('border'),
       },
       rightPriceScale: {
-        borderColor: 'hsl(var(--border))',
+        borderColor: cssVar('border'),
       },
       width: chartContainerRef.current.clientWidth,
       height: 400,

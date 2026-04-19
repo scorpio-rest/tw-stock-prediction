@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react'
 import ReactECharts from 'echarts-for-react'
+import { cssVar } from '@/lib/chartColors'
 import { SIGNAL_NAMES, DIRECTION_COLORS } from '@/lib/constants'
 import type { SignalScore } from '@/types/signal'
 import type { Direction } from '@/types/prediction'
@@ -27,12 +28,12 @@ export function SignalRadarChart({ signals, direction }: SignalRadarChartProps) 
         shape: 'polygon',
         splitNumber: 4,
         axisName: {
-          color: 'hsl(var(--muted-foreground))',
+          color: cssVar('muted-foreground'),
           fontSize: 11,
         },
         splitLine: {
           lineStyle: {
-            color: 'hsl(var(--border))',
+            color: cssVar('border'),
           },
         },
         splitArea: {
@@ -40,7 +41,7 @@ export function SignalRadarChart({ signals, direction }: SignalRadarChartProps) 
         },
         axisLine: {
           lineStyle: {
-            color: 'hsl(var(--border))',
+            color: cssVar('border'),
           },
         },
       },
